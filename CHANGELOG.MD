@@ -1,3 +1,5 @@
+# v1.1.2
+- Update README
 # v1.1.1
 - Add interface struct `IPubsub` define all methods.
 - Depredicate `InitConsumer` and `OnScanMessages` will be remove some version.
