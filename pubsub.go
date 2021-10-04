@@ -14,16 +14,6 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-type Message struct {
-	Offset        int64  `json:"offset,omitempty"`
-	Partition     int    `json:"partition,omitempty"`
-	Topic         string `json:"topic,omitempty"`
-	Body          []byte `json:"body,omitempty"`
-	Timestamp     int64  `json:"timestamp,omitempty"`
-	ConsumerGroup string `json:"consumer_group,omitempty"`
-	Commit        func()
-}
-
 func init() {
 	log.SetFlags(log.Lshortfile)
 	if num, err := strconv.Atoi(os.Getenv("KAFKA_NUM_PARTITION")); err == nil {
@@ -36,31 +26,22 @@ func init() {
 		kafkaVersion = os.Getenv("KAFKA_VERSION")
 	}
 }
-
-type PubSub struct {
-	brokerURLs []string
-	producers  map[string]sarama.SyncProducer
-	group      sarama.ConsumerGroup
-	lock       *sync.Mutex
-	addrs      []string
-
-	consumer sarama.Consumer // for using consumer mode
+func ToInt32(in *int32) int32 {
+	return *in
+}
+func ToPInt32(in int32) *int32 {
+	return &in
 }
 
-var (
-	NUM_PARTITION      = 3
-	REPLICATION_FACTOR = 1
-	publisherConfig    *sarama.Config
-	kafkaVersion       = "2.5.0"
-)
-
-func makeKafkaConfigPublisher() {
+func makeKafkaConfigPublisher(partitioner sarama.PartitionerConstructor) *sarama.Config {
 	config := sarama.NewConfig()
 	config.Producer.Retry.Max = 5
 	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Return.Successes = true
-	config.Producer.Partitioner = sarama.NewRandomPartitioner
-	publisherConfig = config
+	// config.Producer.Partitioner = sarama.NewManualPartitioner()
+	config.Producer.Partitioner = partitioner
+	// publisherConfig = config
+	return config
 }
 
 func newConsumerGroup(consumerGroup string, brokerURLs ...string) (sarama.ConsumerGroup, error) {
@@ -127,15 +108,22 @@ func newConsumer(brokerURLs ...string) (sarama.Consumer, error) {
 }
 
 func newPublisher(topic string, brokerURLs ...string) (sarama.SyncProducer, error) {
-	prd, err := sarama.NewSyncProducer(brokerURLs, publisherConfig)
+	config := makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
+	prd, err := sarama.NewSyncProducer(brokerURLs, config)
 	if err != nil {
 		return nil, err
 	}
 	return prd, nil
 }
 
-func newAsyncPublisher(topic string, brokerURLs ...string) (sarama.AsyncProducer, error) {
-	prd, err := sarama.NewAsyncProducer(brokerURLs, publisherConfig)
+func newPublisherWithConfigPartitioner(topic Topic, brokerURLs ...string) (sarama.SyncProducer, error) {
+	var config *sarama.Config
+	if topic.Partition == nil {
+		config = makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
+	} else if ToInt32(topic.Partition) >= 0 {
+		config = makeKafkaConfigPublisher(sarama.NewManualPartitioner)
+	}
+	prd, err := sarama.NewSyncProducer(brokerURLs, config)
 	if err != nil {
 		return nil, err
 	}
@@ -192,9 +180,9 @@ func (ps *PubSub) InitPublisher(brokerURLs ...string) {
 	ps.lock = &sync.Mutex{}
 	ps.producers = make(map[string]sarama.SyncProducer)
 	ps.addrs = brokerURLs
-	makeKafkaConfigPublisher()
 }
 
+// Publish sync publish message
 func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 	if strings.Contains(topic, "__consumer_offsets") {
 		return errors.New("topic fail")
@@ -224,6 +212,53 @@ func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 		listMsg = append(listMsg, msg)
 	}
 	err := p.producers[topic].SendMessages(listMsg)
+	return err
+}
+
+// PublishWithConfig sync publish message with select config
+// Sender config help config producerMessage
+func (p *PubSub) PublishWithConfig(topic Topic, config *SenderConfig, messages ...interface{}) error {
+	if strings.Contains(topic.Name, "__consumer_offsets") {
+		return errors.New("topic fail")
+	}
+	if _, ok := p.producers[topic.Name]; !ok {
+		p.lock.Lock()
+		producer, err := newPublisherWithConfigPartitioner(topic, p.brokerURLs...)
+		if err != nil {
+			log.Print("[sarama]:", err, "]: topic", topic)
+			p.lock.Unlock()
+			return err
+		}
+		p.producers[topic.Name] = producer
+		p.lock.Unlock()
+	}
+	listMsg := make([]*sarama.ProducerMessage, 0)
+	for _, msg := range messages {
+		bin, err := json.Marshal(msg)
+		if err != nil {
+			log.Printf("[sarama] error: %v[sarama] msg: %v", err, msg)
+		}
+		pmsg := &sarama.ProducerMessage{
+			Topic:     topic.Name,
+			Value:     sarama.StringEncoder(bin),
+			Partition: -1,
+		}
+		if topic.Partition != nil {
+			pmsg.Partition = ToInt32(topic.Partition)
+		}
+
+		if config != nil {
+			pmsg.Metadata = config.Metadata
+			if len(config.Headers) > 0 {
+				for k, v := range config.Headers {
+					pmsg.Headers = append(pmsg.Headers, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
+				}
+			}
+		}
+		listMsg = append(listMsg, pmsg)
+
+	}
+	err := p.producers[topic.Name].SendMessages(listMsg)
 	return err
 }
 
@@ -287,6 +322,7 @@ func (ps *PubSub) ListTopics(brokers ...string) ([]string, error) {
 type Topic struct {
 	Name       string
 	AutoCommit bool
+	Partition  *int32
 }
 
 // OnAsyncSubscribe listener
@@ -334,10 +370,7 @@ func (ps *PubSub) OnAsyncSubscribe(topics []Topic, numberworkers int, buf chan M
 	consumer.wg.Wait()
 	log.Print("[kafka] start all worker")
 	<-consumer.lock
-	select {
-	case err := <-ps.group.Errors():
-		log.Print(err)
-	}
+	log.Print(<-ps.group.Errors())
 	cancel()
 	if err := ps.group.Close(); err != nil {
 		log.Printf("Error closing client: %v", err)
@@ -351,22 +384,22 @@ func messageHandler(m *sarama.ConsumerMessage, bufMessage chan Message) error {
 		// Returning nil will automatically send a FIN command to NSQ to mark the message as processed.
 		return errors.New("message error")
 	}
-	bufMessage <- Message{
+	msg := Message{
 		Topic:     m.Topic,
 		Body:      m.Value,
 		Offset:    m.Offset,
 		Partition: int(m.Partition),
 		Timestamp: m.Timestamp.Unix(),
 	}
+	if len(m.Headers) != 0 {
+		headers := map[string]string{}
+		for _, header := range m.Headers {
+			headers[string(header.Key)] = string(header.Value)
+		}
+		msg.Headers = headers
+	}
+	bufMessage <- msg
 	return nil
-}
-
-// ConsumerGroupHandle represents a Sarama consumer group consumer
-type ConsumerGroupHandle struct {
-	wg         *sync.WaitGroup
-	lock       chan bool
-	bufMessage chan Message
-	autoCommit map[string]bool
 }
 
 // Setup is run at the beginning of a new session, before ConsumeClaim
@@ -402,6 +435,13 @@ func (consumer *ConsumerGroupHandle) ConsumeClaim(session sarama.ConsumerGroupSe
 			Offset:    m.Offset,
 			Partition: int(m.Partition),
 			Timestamp: m.Timestamp.Unix(),
+		}
+		if len(m.Headers) != 0 {
+			headers := map[string]string{}
+			for _, header := range m.Headers {
+				headers[string(header.Key)] = string(header.Value)
+			}
+			msg.Headers = headers
 		}
 		if consumer.autoCommit[m.Topic] {
 			session.MarkOffset(m.Topic, m.Partition, m.Offset, "")
