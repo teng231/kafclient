@@ -30,11 +30,11 @@ type PubSub struct {
 
 type IPubsub interface {
 	InitConsumerGroup(consumerGroup string, brokerURLs ...string) error
-	InitConsumer(brokerURLs ...string) error // predicated
+	InitConsumer(brokerURLs ...string) error // depredicated
 	InitPublisher(brokerURLs ...string)      // backward compatible
 	// Publish send multiple messages to topic
 	Publish(topic string, messages ...interface{}) error
-	OnScanMessages(topics []string, bufMessage chan Message) error // predicated
+	OnScanMessages(topics []string, bufMessage chan Message) error // depredicated
 	// ListTopics for ping
 	ListTopics(brokers ...string) ([]string, error)
 	OnAsyncSubscribe(topics []Topic, numberworkers int, buf chan Message) error
