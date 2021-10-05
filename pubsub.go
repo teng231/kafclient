@@ -116,7 +116,7 @@ func newPublisher(topic string, brokerURLs ...string) (sarama.SyncProducer, erro
 	return prd, nil
 }
 
-func newPublisherWithConfigPartitioner(topic Topic, brokerURLs ...string) (sarama.SyncProducer, error) {
+func newPublisherWithConfigPartitioner(topic *Topic, brokerURLs ...string) (sarama.SyncProducer, error) {
 	var config *sarama.Config
 	if topic.Partition == nil {
 		config = makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
@@ -217,7 +217,7 @@ func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 
 // PublishWithConfig sync publish message with select config
 // Sender config help config producerMessage
-func (p *PubSub) PublishWithConfig(topic Topic, config *SenderConfig, messages ...interface{}) error {
+func (p *PubSub) PublishWithConfig(topic *Topic, config *SenderConfig, messages ...interface{}) error {
 	if strings.Contains(topic.Name, "__consumer_offsets") {
 		return errors.New("topic fail")
 	}
@@ -326,7 +326,7 @@ type Topic struct {
 }
 
 // OnAsyncSubscribe listener
-func (ps *PubSub) OnAsyncSubscribe(topics []Topic, numberworkers int, buf chan Message) error {
+func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberworkers int, buf chan Message) error {
 	txtTopics := []string{}
 	autoCommit := map[string]bool{}
 	for _, topic := range topics {

@@ -37,10 +37,10 @@ type IPubsub interface {
 	OnScanMessages(topics []string, bufMessage chan Message) error // depredicated
 	// ListTopics for ping
 	ListTopics(brokers ...string) ([]string, error)
-	OnAsyncSubscribe(topics []Topic, numberworkers int, buf chan Message) error
+	OnAsyncSubscribe(topics []*Topic, numberworkers int, buf chan Message) error
 	// PublishWithConfig help we can publish message to 1 partition.
 	// help application process task synchronized
-	PublishWithConfig(topic Topic, config *SenderConfig, messages ...interface{}) error
+	PublishWithConfig(topic *Topic, config *SenderConfig, messages ...interface{}) error
 }
 
 // Message define message encode/decode sarama message
