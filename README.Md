@@ -106,6 +106,22 @@ func SendMessage() error {
 }
 
 
+func SendMessageExtraConfig() error {
+    sms := map[string]interface{}{
+		Body: "hello everyone",
+        App:  "company.vn",
+		To:   []string{"0374140511"},
+	}
+    if err := ps.Publish(Topic{Name:"topic_send_example"}, &SenderConfig{
+		Header: map[string]string{"sender_by": "containerX"},
+		Metadata: "any_if_you_want",
+	}, sms); err != nil {
+		log.Print(err)
+        return err
+	}
+    return nil
+}
+
 
 func onListenUserInsert(payload []byte, h *Account, fnCommit func()) {
 	defer fnCommit()
@@ -114,9 +130,10 @@ func onListenUserInsert(payload []byte, h *Account, fnCommit func()) {
     ...
 }
 
+
 type MsgHandler struct {
-	f          func([]byte, *Account, func())
-	AutoCommit bool
+	f     func([]byte, *Account, func())
+	topic *pubsub.Topic
 }
 
 var (
@@ -124,6 +141,11 @@ var (
     numberOfConcurrents = 1
 	subsList                   = map[string]*MsgHandler{
 		backend_user_insert_user:                   {onListenUserInsert, false},
+
+		backend_user_insert_user: {onListenUserInsert, &pubsub.Topic{
+			Name:       backend_user_insert_user,
+			AutoCommit: false,
+		}},
 	}
 )
 
@@ -131,10 +153,11 @@ func onStreamRunning(ps *pubsub.PubSub, h *Account) {
 	log.Print("Stream start")
 	msgBuf := make(chan pubsub.Message, 1000)
 
+	numberOfConcurrents := 1
+	topics := make([]*pubsub.Topic, 0, 100)
 
-	topics := make([]pubsub.Topic, 0)
-	for topic, handler := range subsList {
-		topics = append(topics, pubsub.Topic{Name: topic, AutoCommit: handler.AutoCommit})
+	for _, msghandler := range kafkaTopics {
+		topics = append(topics, msghandler.topic)
 	}
 
 	go func() {
