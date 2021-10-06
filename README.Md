@@ -112,7 +112,24 @@ func SendMessageExtraConfig() error {
         App:  "company.vn",
 		To:   []string{"0374140511"},
 	}
-    if err := ps.Publish(Topic{Name:"topic_send_example"}, &SenderConfig{
+    if err := ps.PublishWithConfig(Topic{Name:"topic_send_example", AutoCommit: false}, &SenderConfig{
+		Header: map[string]string{"sender_by": "containerX"},
+		Metadata: "any_if_you_want",
+	}, sms); err != nil {
+		log.Print(err)
+        return err
+	}
+    return nil
+}
+
+// send message help sync task
+func SendMessageToSinglePartition() error {
+    sms := map[string]interface{}{
+		Body: "hello everyone",
+        App:  "company.vn",
+		To:   []string{"0374140511"},
+	}
+    if err := ps.PublishWithConfig(Topic{Name:"topic_send_example", AutoCommit: false, Partition: ToPInt32(1)}, &SenderConfig{
 		Header: map[string]string{"sender_by": "containerX"},
 		Metadata: "any_if_you_want",
 	}, sms); err != nil {
@@ -140,8 +157,6 @@ var (
 	backend_user_insert_user = "backend_user_insert_user"
     numberOfConcurrents = 1
 	subsList                   = map[string]*MsgHandler{
-		backend_user_insert_user:                   {onListenUserInsert, false},
-
 		backend_user_insert_user: {onListenUserInsert, &pubsub.Topic{
 			Name:       backend_user_insert_user,
 			AutoCommit: false,
