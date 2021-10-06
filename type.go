@@ -18,6 +18,13 @@ type SenderConfig struct {
 	Metadata interface{}
 	Headers  map[string]string
 }
+
+type Topic struct {
+	Name       string
+	AutoCommit bool
+	Partition  *int32
+}
+
 type PubSub struct {
 	brokerURLs []string
 	producers  map[string]sarama.SyncProducer

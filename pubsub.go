@@ -319,12 +319,6 @@ func (ps *PubSub) ListTopics(brokers ...string) ([]string, error) {
 	return cluster.Topics()
 }
 
-type Topic struct {
-	Name       string
-	AutoCommit bool
-	Partition  *int32
-}
-
 // OnAsyncSubscribe listener
 func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberworkers int, buf chan Message) error {
 	txtTopics := []string{}
