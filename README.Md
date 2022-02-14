@@ -2,6 +2,7 @@
 
 helper for create system using kafka to streaming and events driven base.
 
+[![Go](https://github.com/teng231/psub/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/teng231/psub/actions/workflows/go.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/princjef/gomarkdoc.svg)](https://pkg.go.dev/github.com/teng231/psub)
 
 ### Install
