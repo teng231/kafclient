@@ -1,3 +1,8 @@
+# v1.1.4
+- Upgrade code, fix issue create topic
+- update golang version
+# v1.1.3
+- Update struct name, syntax, remove log
 # v1.1.2
 - Update README
 # v1.1.1
