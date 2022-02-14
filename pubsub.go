@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"os"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -16,19 +14,11 @@ import (
 
 func init() {
 	log.SetFlags(log.Lshortfile)
-	if num, err := strconv.Atoi(os.Getenv("KAFKA_NUM_PARTITION")); err == nil {
-		NUM_PARTITION = num
-	}
-	if num, err := strconv.Atoi(os.Getenv("KAFKA_REPLICATION_FACTOR")); err == nil {
-		REPLICATION_FACTOR = num
-	}
-	if os.Getenv("KAFKA_VERSION") != "" {
-		kafkaVersion = os.Getenv("KAFKA_VERSION")
-	}
 }
 func ToInt32(in *int32) int32 {
 	return *in
 }
+
 func ToPInt32(in int32) *int32 {
 	return &in
 }
@@ -94,12 +84,6 @@ func newConsumer(brokerURLs ...string) (sarama.Consumer, error) {
 	config.Consumer.Return.Errors = true
 	config.Consumer.Offsets.AutoCommit.Enable = true
 	config.Consumer.Offsets.AutoCommit.Interval = 500 * time.Millisecond
-	// Start with a client
-	// client, err := sarama.NewClient(brokerURLs, config)
-	// if err != nil {
-	// 	client.Close()
-	// 	return nil, err
-	// }
 	consumer, err := sarama.NewConsumer(brokerURLs, config)
 	if err != nil {
 		return nil, err
@@ -132,15 +116,10 @@ func newPublisherWithConfigPartitioner(topic *Topic, brokerURLs ...string) (sara
 
 func (ps *PubSub) createTopic(topic string) error {
 	config := sarama.NewConfig()
-	version, err := sarama.ParseKafkaVersion("2.5.0")
+	config.Version = ps.kafkaVersion
+	admin, err := sarama.NewClusterAdmin(ps.brokerURLs, config)
 	if err != nil {
-		log.Printf("Error parsing Kafka version: %v", err)
-		return err
-	}
-	config.Version = version
-	admin, err := sarama.NewClusterAdmin(ps.addrs, config)
-	if err != nil {
-		log.Println("error is", err)
+		log.Println("[warning]: ", err, ps.brokerURLs)
 		return err
 	}
 	detail := &sarama.TopicDetail{
@@ -149,7 +128,7 @@ func (ps *PubSub) createTopic(topic string) error {
 	}
 	err = admin.CreateTopic(topic, detail, false)
 	if err != nil {
-		log.Println("error is", err)
+		log.Println("[psub]:", err)
 	}
 	log.Print(detail)
 	return err
@@ -161,7 +140,7 @@ func (ps *PubSub) InitConsumerGroup(consumerGroup string, brokerURLs ...string) 
 		return err
 	}
 	ps.group = client
-	ps.addrs = brokerURLs
+	ps.brokerURLs = brokerURLs
 	return nil
 }
 func (ps *PubSub) InitConsumer(brokerURLs ...string) error {
@@ -170,16 +149,14 @@ func (ps *PubSub) InitConsumer(brokerURLs ...string) error {
 		return err
 	}
 	ps.consumer = client
-	ps.addrs = brokerURLs
+	ps.brokerURLs = brokerURLs
 	return nil
 }
 
 // InitPublisher init with addr is url of lookupd
 func (ps *PubSub) InitPublisher(brokerURLs ...string) {
 	ps.brokerURLs = brokerURLs
-	ps.lock = &sync.Mutex{}
-	ps.producers = make(map[string]sarama.SyncProducer)
-	ps.addrs = brokerURLs
+	// ps.producers = make(map[string]sarama.SyncProducer)
 }
 
 // Publish sync publish message
@@ -187,16 +164,14 @@ func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 	if strings.Contains(topic, "__consumer_offsets") {
 		return errors.New("topic fail")
 	}
-	if _, ok := p.producers[topic]; !ok {
-		p.lock.Lock()
+
+	if _, ok := p.mProducer.Load(topic); !ok {
 		producer, err := newPublisher(topic, p.brokerURLs...)
 		if err != nil {
 			log.Print("[sarama]:", err, "]: topic", topic)
-			p.lock.Unlock()
 			return err
 		}
-		p.producers[topic] = producer
-		p.lock.Unlock()
+		p.mProducer.Store(topic, producer)
 	}
 	listMsg := make([]*sarama.ProducerMessage, 0)
 	for _, msg := range messages {
@@ -211,7 +186,11 @@ func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 		}
 		listMsg = append(listMsg, msg)
 	}
-	err := p.producers[topic].SendMessages(listMsg)
+	syncProducer, ok := p.mProducer.Load(topic)
+	if !ok {
+		log.Print("not found any sync Producer")
+	}
+	err := syncProducer.(sarama.SyncProducer).SendMessages(listMsg)
 	return err
 }
 
@@ -221,16 +200,13 @@ func (p *PubSub) PublishWithConfig(topic *Topic, config *SenderConfig, messages 
 	if strings.Contains(topic.Name, "__consumer_offsets") {
 		return errors.New("topic fail")
 	}
-	if _, ok := p.producers[topic.Name]; !ok {
-		p.lock.Lock()
+	if _, ok := p.mProducer.Load(topic); !ok {
 		producer, err := newPublisherWithConfigPartitioner(topic, p.brokerURLs...)
 		if err != nil {
 			log.Print("[sarama]:", err, "]: topic", topic)
-			p.lock.Unlock()
 			return err
 		}
-		p.producers[topic.Name] = producer
-		p.lock.Unlock()
+		p.mProducer.Store(topic, producer)
 	}
 	listMsg := make([]*sarama.ProducerMessage, 0)
 	for _, msg := range messages {
@@ -258,7 +234,11 @@ func (p *PubSub) PublishWithConfig(topic *Topic, config *SenderConfig, messages 
 		listMsg = append(listMsg, pmsg)
 
 	}
-	err := p.producers[topic.Name].SendMessages(listMsg)
+	syncProducer, ok := p.mProducer.Load(topic)
+	if !ok {
+		log.Print("not found any sync Producer")
+	}
+	err := syncProducer.(sarama.SyncProducer).SendMessages(listMsg)
 	return err
 }
 
@@ -320,14 +300,25 @@ func (ps *PubSub) ListTopics(brokers ...string) ([]string, error) {
 }
 
 // OnAsyncSubscribe listener
-func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberworkers int, buf chan Message) error {
+func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
 	txtTopics := []string{}
 	autoCommit := map[string]bool{}
+	allTopics, err := ps.ListTopics(ps.brokerURLs...)
+	if err != nil {
+		log.Print("can't not list topics existed")
+		return err
+	}
+	mTopic := make(map[string]bool)
+	for _, topic := range allTopics {
+		mTopic[topic] = true
+	}
 	for _, topic := range topics {
 		if strings.Contains(topic.Name, "__consumer_offsets") {
 			continue
 		}
-		ps.createTopic(topic.Name)
+		if _, has := mTopic[topic.Name]; has {
+			ps.createTopic(topic.Name)
+		}
 		txtTopics = append(txtTopics, topic.Name)
 		autoCommit[topic.Name] = topic.AutoCommit
 		if topic.AutoCommit {
@@ -342,9 +333,9 @@ func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberworkers int, buf chan 
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
-	consumer.wg.Add(numberworkers)
+	consumer.wg.Add(numberPuller)
 
-	for i := 0; i < numberworkers; i++ {
+	for i := 0; i < numberPuller; i++ {
 		go func() {
 			for {
 				// `Consume` should be called inside an infinite loop, when a
@@ -352,11 +343,11 @@ func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberworkers int, buf chan 
 				// recreated to get the new claims
 				err := ps.group.Consume(ctx, txtTopics, consumer)
 				if err != nil {
-					log.Printf("Error from consumer: %v", err)
+					log.Printf("[psub]: %v", err)
 					break
 				}
 				consumer.wg = &sync.WaitGroup{}
-				consumer.wg.Add(numberworkers)
+				consumer.wg.Add(numberPuller)
 			}
 		}()
 	}
@@ -450,5 +441,25 @@ func (consumer *ConsumerGroupHandle) ConsumeClaim(session sarama.ConsumerGroupSe
 		}
 		consumer.bufMessage <- msg
 	}
+	return nil
+}
+
+func (ps *PubSub) Close() error {
+	if ps.consumer != nil {
+		if err := ps.consumer.Close(); err != nil {
+			return err
+		}
+	}
+	var err error
+	ps.mProducer.Range(func(k interface{}, sp interface{}) bool {
+		if sp == nil {
+			return true
+		}
+		err = sp.(sarama.SyncProducer).Close()
+		if err != nil {
+			log.Print("close error: ", err.Error())
+		}
+		return true
+	})
 	return nil
 }

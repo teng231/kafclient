@@ -2,7 +2,6 @@ package pubsub
 
 import (
 	"log"
-	"os"
 	"strings"
 	"time"
 
@@ -26,44 +25,48 @@ type User struct {
 	Test with consumer and publisher
 
 //**************** Test send message to topic using sync **********************/
-func TestCGPush2Message(t *testing.T) {
+
+func testPublishMessages(brokerURL, topic string, count int) {
 	ps := &PubSub{}
-	brokers := strings.Split("0.0.0.0:9092", ",")
+	brokers := strings.Split(brokerURL, ",")
 
 	ps.InitPublisher(brokers...)
 	log.Print("init done publiser")
-	for i := 1; i <= 100; i++ {
-		err := ps.Publish("cg_topic_test1", &User{
+	for i := 1; i <= count; i++ {
+		err := ps.Publish(topic, &User{
 			Name: "hoa",
 			Age:  i,
 		})
-		log.Print(err)
-		time.Sleep(100 * time.Millisecond)
+		log.Print(i, err)
+		// time.Sleep(100 * time.Millisecond)
 	}
+	ps.Close()
+}
+
+func TestPuslishMessages(t *testing.T) {
+	testPublishMessages("0.0.0.0:9092", "topic-0", 20)
 }
 
 // ***** Test send message with config ****/
-func TestPushMessageWithTopicConfig(t *testing.T) {
+func testPuslishMessagesWithConfig(brokerURL, topic1, topic2 string) {
 	ps := &PubSub{}
-	brokers := strings.Split("0.0.0.0:9092", ",")
+	brokers := strings.Split(brokerURL, ",")
 
 	ps.InitPublisher(brokers...)
-	log.Print("init done publiser")
-	// ************ Send message with header ***************
 	config := &SenderConfig{
-		Headers: map[string]string{"token": "123"},
+		Headers: map[string]string{"token": "abc123"},
 	}
-	topic := &Topic{Name: "cg_topic_test1"}
+	topic := &Topic{Name: topic1}
 	for i := 1; i <= 20; i++ {
 		err := ps.PublishWithConfig(topic, config, &User{
 			Name: "nguoi dau tien",
 			Age:  i,
 		})
-		log.Print(err)
+		log.Print(i, err)
 		time.Sleep(100 * time.Millisecond)
 	}
 	// *************** Send message with specific partition ***********
-	topic = &Topic{Name: "cg_topic_test2", AutoCommit: true, Partition: ToPInt32(1)}
+	topic = &Topic{Name: topic2, AutoCommit: true, Partition: ToPInt32(1)}
 	for i := 1; i <= 20; i++ {
 		err := ps.PublishWithConfig(topic, config, &User{
 			Name: "nguoi thu 2",
@@ -73,13 +76,16 @@ func TestPushMessageWithTopicConfig(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 	}
 }
+func TestPuslishMessagesWithConfig(t *testing.T) {
+	testPuslishMessagesWithConfig("0.0.0.0:9092", "topic-1", "topic-2")
+}
 
 //**************** Test handle message when listen event auto commit **********************/
-func TestCGHandleMessage(t *testing.T) {
+func testSubscribeSimpleAutoCommit(brokerURL, group, topic1, topic2 string) {
 	ps := &PubSub{}
-	brokers := strings.Split("0.0.0.0:9092", ",")
+	brokers := strings.Split(brokerURL, ",")
 
-	err := ps.InitConsumerGroup(os.Getenv("CG"), brokers...)
+	err := ps.InitConsumerGroup(group, brokers...)
 	if err != nil {
 		log.Print(err)
 		return
@@ -88,103 +94,90 @@ func TestCGHandleMessage(t *testing.T) {
 	buff := make(chan Message, 5)
 	go func() {
 		for {
-			select {
-			case d := <-buff:
-				user := &User{}
-				BodyParse(d.Body, user)
-				log.Print(d.Headers, d.Partition, user)
-			}
+			d := <-buff
+			user := &User{}
+			BodyParse(d.Body, user)
+			log.Print(d.Headers, d.Partition, user)
 		}
 	}()
-	err = ps.OnAsyncSubscribe([]*Topic{{
-		Name: "cg_topic_test1", AutoCommit: true,
-	}, {
-		Name: "cg_topic_test2", AutoCommit: true, Partition: ToPInt32(1),
-	},
+	err = ps.OnAsyncSubscribe([]*Topic{
+		{
+			Name: topic1, AutoCommit: true,
+		}, {
+			Name: topic2, AutoCommit: true, Partition: ToPInt32(1),
+		},
 	}, 1, buff)
 	log.Print(err)
 }
+func TestSubscribeSimpleAutoCommit(t *testing.T) {
+	testSubscribeSimpleAutoCommit("0.0.0.0:9092", "CG-0", "topic-1", "topic-2")
+}
 
 // ********** Test listen message when listen message and manual commit ****/
-func TestCGHandleMessageWithManual(t *testing.T) {
+func testSubscribeSimpleManualCommit(brokerURL, group, topic string) {
 	ps := &PubSub{}
-	brokers := strings.Split("0.0.0.0:9092", ",")
+	brokers := strings.Split(brokerURL, ",")
 
-	err := ps.InitConsumerGroup(os.Getenv("CG"), brokers...)
+	err := ps.InitConsumerGroup(group, brokers...)
 	if err != nil {
 		log.Print(err)
 		return
 	}
 	log.Print("init done consumer")
-	buff := make(chan Message, 5)
+	buff := make(chan Message, 20)
 	go func() {
 		for {
-			select {
-			case d := <-buff:
-				user := &User{}
-				BodyParse(d.Body, user)
-				log.Print(user)
-				// d.Commit()
-				if user.Age != 100 {
-					d.Commit()
-				}
+			d := <-buff
+			user := &User{}
+			BodyParse(d.Body, user)
+			log.Print(d.Headers, d.Partition, user)
+			if user.Age != 100 {
+				d.Commit()
 			}
 		}
 	}()
 	err = ps.OnAsyncSubscribe([]*Topic{{
-		"cg_topic_test1", false, nil,
+		topic, false, nil,
 	}}, 1, buff)
 	log.Print(err)
 }
+func TestSubscribeSimpleManualCommit(t *testing.T) {
+	testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-0", "topic-0")
+}
 
-func Test_listTopic(t *testing.T) {
+func TestListTopic(t *testing.T) {
 	ps := &PubSub{}
 	brokers := strings.Split("0.0.0.0:9092", ",")
 	ts, err := ps.ListTopics(brokers...)
 	log.Print(ts, err)
 }
 
-// **************************** Test with cluster **************************** /
-func TestCGPush2Message2(t *testing.T) {
-	ps := &PubSub{}
-	brokers := strings.Split("localhost:9002,localhost:9003", ",")
+// --------------------- Test full publish and subscribe ---------------------
 
-	ps.InitPublisher(brokers...)
-	log.Print("init done publiser")
-	for i := 1; i <= 100; i++ {
-		err := ps.Publish("cg_topic_test1", &User{
-			Name: "hoa",
-			Age:  i,
-		})
-		log.Print(err)
-		time.Sleep(100 * time.Millisecond)
-	}
+func TestSimplePublishAndSubscibe(t *testing.T) {
+	lock := make(chan bool)
+	go t.Run("subscribe 1", func(t *testing.T) {
+		testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-0", "topic-3")
+	})
+	go t.Run("subscribe 2", func(t *testing.T) {
+		testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-1", "topic-3")
+	})
+	time.Sleep(5 * time.Second)
+	t.Run("publish to topic", func(t *testing.T) {
+		testPublishMessages("0.0.0.0:9092", "topic-3", 20)
+	})
+	<-lock
 }
 
-func TestCGHandleMessage2(t *testing.T) {
-	ps := &PubSub{}
-	brokers := strings.Split("localhost:9002,localhost:9003", ",")
+// ------------------- Benchmark test ----------------
+func BenchmarkPublishMessages100z(b *testing.B) {
+	testPublishMessages("0.0.0.0:9092", "topic-4", 100)
+}
 
-	err := ps.InitConsumerGroup(os.Getenv("CG"), brokers...)
-	if err != nil {
-		log.Print(err)
-		return
-	}
-	log.Print("init done consumer")
-	buff := make(chan Message, 5)
-	go func() {
-		for {
-			select {
-			case d := <-buff:
-				user := &User{}
-				BodyParse(d.Body, user)
-				log.Print(user)
-				d.Commit()
-			}
-		}
-	}()
-	err = ps.OnAsyncSubscribe([]*Topic{{
-		Name: "cg_topic_test1", AutoCommit: false,
-	}}, 1, buff)
-	log.Print(err)
+func BenchmarkPublishMessages10000z(b *testing.B) {
+	testPublishMessages("0.0.0.0:9092", "topic-5", 10000)
+}
+
+func BenchmarkSubscribeSimpleManualCommit(b *testing.B) {
+	testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-1", "topic-5")
 }
