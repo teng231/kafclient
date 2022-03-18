@@ -137,7 +137,7 @@ func testSubscribeSimpleManualCommit(brokerURL, group, topic string) {
 		}
 	}()
 	err = ps.OnAsyncSubscribe([]*Topic{{
-		topic, false, nil,
+		topic, false, nil, false,
 	}}, 1, buff)
 	log.Print(err)
 }

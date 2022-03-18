@@ -14,6 +14,9 @@ import (
 
 func init() {
 	log.SetFlags(log.Lshortfile)
+	if kafkaVersion == "" {
+		kafkaVersion = "2.5.0"
+	}
 }
 func ToInt32(in *int32) int32 {
 	return *in
@@ -316,9 +319,12 @@ func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 		if strings.Contains(topic.Name, "__consumer_offsets") {
 			continue
 		}
-		if _, has := mTopic[topic.Name]; has {
-			ps.createTopic(topic.Name)
+		if topic.IsNeedManualCreateTopic {
+			if _, has := mTopic[topic.Name]; has {
+				ps.createTopic(topic.Name)
+			}
 		}
+
 		txtTopics = append(txtTopics, topic.Name)
 		autoCommit[topic.Name] = topic.AutoCommit
 		if topic.AutoCommit {

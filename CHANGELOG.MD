@@ -1,3 +1,6 @@
+# v1.1.5
+- Add manual for create topic or not
+- config at `config/server.properties` with config `auto.create.topics.enable`
 # v1.1.4
 - Upgrade code, fix issue create topic
 - update golang version

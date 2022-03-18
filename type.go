@@ -1,6 +1,7 @@
 package pubsub
 
 import (
+	"os"
 	"sync"
 
 	"github.com/Shopify/sarama"
@@ -9,7 +10,7 @@ import (
 var (
 	NUM_PARTITION      = 3
 	REPLICATION_FACTOR = 1
-	kafkaVersion       = "2.5.0"
+	kafkaVersion       = os.Getenv("KAFKA_VERSION")
 )
 
 // SenderConfig addion config when publish message
@@ -19,9 +20,10 @@ type SenderConfig struct {
 }
 
 type Topic struct {
-	Name       string
-	AutoCommit bool
-	Partition  *int32
+	Name                    string
+	AutoCommit              bool
+	Partition               *int32
+	IsNeedManualCreateTopic bool
 }
 
 type PubSubConfig struct {
