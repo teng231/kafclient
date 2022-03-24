@@ -103,6 +103,15 @@ func newPublisher(topic string, brokerURLs ...string) (sarama.SyncProducer, erro
 	return prd, nil
 }
 
+func newAsyncPublisher(topic string, brokerURLs ...string) (sarama.AsyncProducer, error) {
+	config := makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
+	prd, err := sarama.NewAsyncProducer(brokerURLs, config)
+	if err != nil {
+		return nil, err
+	}
+	return prd, nil
+}
+
 func newPublisherWithConfigPartitioner(topic *Topic, brokerURLs ...string) (sarama.SyncProducer, error) {
 	var config *sarama.Config
 	if topic.Partition == nil {
@@ -187,6 +196,7 @@ func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 			Value:     sarama.StringEncoder(bin),
 			Partition: -1,
 		}
+		// asyncProducer.(sarama.AsyncProducer).Input() <- msg
 		listMsg = append(listMsg, msg)
 	}
 	syncProducer, ok := p.mProducer.Load(topic)
@@ -195,6 +205,36 @@ func (p *PubSub) Publish(topic string, messages ...interface{}) error {
 	}
 	err := syncProducer.(sarama.SyncProducer).SendMessages(listMsg)
 	return err
+}
+
+// AsyncPublish async publish message
+func (p *PubSub) AsyncPublish(topic string, messages ...interface{}) error {
+	if strings.Contains(topic, "__consumer_offsets") {
+		return errors.New("topic fail")
+	}
+
+	if _, ok := p.mProducer.Load(topic); !ok {
+		producer, err := newAsyncPublisher(topic, p.brokerURLs...)
+		if err != nil {
+			log.Print("[sarama]:", err, "]: topic", topic)
+			return err
+		}
+		p.mProducer.Store(topic, producer)
+	}
+	asyncProducer, _ := p.mProducer.Load(topic)
+	for _, msg := range messages {
+		bin, err := json.Marshal(msg)
+		if err != nil {
+			log.Printf("[sarama] error: %v[sarama] msg: %v", err, msg)
+		}
+		msg := &sarama.ProducerMessage{
+			Topic:     topic,
+			Value:     sarama.StringEncoder(bin),
+			Partition: -1,
+		}
+		asyncProducer.(sarama.AsyncProducer).Input() <- msg
+	}
+	return nil
 }
 
 // PublishWithConfig sync publish message with select config
@@ -456,16 +496,16 @@ func (ps *PubSub) Close() error {
 			return err
 		}
 	}
-	var err error
-	ps.mProducer.Range(func(k interface{}, sp interface{}) bool {
-		if sp == nil {
-			return true
-		}
-		err = sp.(sarama.SyncProducer).Close()
-		if err != nil {
-			log.Print("close error: ", err.Error())
-		}
-		return true
-	})
+	// var err error
+	// ps.mProducer.Range(func(k interface{}, sp interface{}) bool {
+	// 	if sp == nil {
+	// 		return true
+	// 	}
+	// 	err = sp.(sarama.SyncProducer).Close()
+	// 	if err != nil {
+	// 		log.Print("close error: ", err.Error())
+	// 	}
+	// 	return true
+	// })
 	return nil
 }

@@ -1,3 +1,6 @@
+# v1.1.6
+- Add Async publish, send message async
+- Update sarama. because v1.31.1 publisher deadlock
 # v1.1.5
 - Add manual for create topic or not
 - config at `config/server.properties` with config `auto.create.topics.enable`
