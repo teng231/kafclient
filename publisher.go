@@ -53,13 +53,13 @@ func newPublisherWithConfigPartitioner(topic *Topic, brokerURLs ...string) (sara
 }
 
 // InitPublisher init with addr is url of lookupd
-func (ps *KafClient) InitPublisher(brokerURLs ...string) {
+func (ps *Client) InitPublisher(brokerURLs ...string) {
 	ps.brokerURLs = brokerURLs
 	// ps.producers = make(map[string]sarama.SyncProducer)
 }
 
 // Publish sync publish message
-func (p *KafClient) Publish(topic string, messages ...interface{}) error {
+func (p *Client) Publish(topic string, messages ...interface{}) error {
 	if strings.Contains(topic, "__consumer_offsets") {
 		return errors.New("topic fail")
 	}
@@ -95,7 +95,7 @@ func (p *KafClient) Publish(topic string, messages ...interface{}) error {
 }
 
 // AsyncPublish async publish message
-func (p *KafClient) AsyncPublish(topic string, messages ...interface{}) error {
+func (p *Client) AsyncPublish(topic string, messages ...interface{}) error {
 	if strings.Contains(topic, "__consumer_offsets") {
 		return errors.New("topic fail")
 	}
@@ -126,7 +126,7 @@ func (p *KafClient) AsyncPublish(topic string, messages ...interface{}) error {
 
 // PublishWithConfig sync publish message with select config
 // Sender config help config producerMessage
-func (p *KafClient) PublishWithConfig(topic *Topic, config *SenderConfig, messages ...interface{}) error {
+func (p *Client) PublishWithConfig(topic *Topic, config *SenderConfig, messages ...interface{}) error {
 	if strings.Contains(topic.Name, "__consumer_offsets") {
 		return errors.New("topic fail")
 	}

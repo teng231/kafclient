@@ -26,7 +26,7 @@ For example to setup:
 
 ``` go
 func NewKafClient() error {
-	ps := &psub.KafClient{}
+	ps := &psub.Client{}
 	brokers := strings.Split("localhost:9002,localhost:9003", ",")
 	ps.InitPublisher(brokers...)
 	err := ps.InitConsumerGroup(cf.KafClientSubscription, brokers...)
@@ -45,7 +45,7 @@ func NewKafClient() error {
 ``` go
 
 func NewKafClient() error {
-	ps := &psub.KafClient{}
+	ps := &psub.Client{}
 	brokers := strings.Split("localhost:9002,localhost:9003", ",")
 	ps.InitPublisher(brokers...)
 	if err != nil {
@@ -83,7 +83,7 @@ func main() {
 
 
 func NewKafClient() error {
-	ps := &psub.KafClient{}
+	ps := &psub.Client{}
 	brokers := strings.Split("localhost:9002,localhost:9003", ",")
 	err := ps.InitConsumerGroup(cf.KafClientSubscription, brokers...)
 	if err != nil {

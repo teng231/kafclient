@@ -70,7 +70,7 @@ func newConsumer(brokerURLs ...string) (sarama.Consumer, error) {
 	return consumer, nil
 }
 
-func (ps *KafClient) createTopic(topic string) error {
+func (ps *Client) createTopic(topic string) error {
 	config := sarama.NewConfig()
 	config.Version = ps.kafkaVersion
 	admin, err := sarama.NewClusterAdmin(ps.brokerURLs, config)
@@ -90,7 +90,7 @@ func (ps *KafClient) createTopic(topic string) error {
 	return err
 }
 
-func (ps *KafClient) InitConsumerGroup(consumerGroup string, brokerURLs ...string) error {
+func (ps *Client) InitConsumerGroup(consumerGroup string, brokerURLs ...string) error {
 	client, err := newConsumerGroup(consumerGroup, ps.reconnect, brokerURLs...)
 	if err != nil {
 		return err
@@ -101,7 +101,7 @@ func (ps *KafClient) InitConsumerGroup(consumerGroup string, brokerURLs ...strin
 	// ps.reconnect = make(chan bool)
 	return nil
 }
-func (ps *KafClient) InitConsumer(brokerURLs ...string) error {
+func (ps *Client) InitConsumer(brokerURLs ...string) error {
 	client, err := newConsumer(brokerURLs...)
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (ps *KafClient) InitConsumer(brokerURLs ...string) error {
 	return nil
 }
 
-func (ps *KafClient) OnScanMessages(topics []string, bufMessage chan Message) error {
+func (ps *Client) OnScanMessages(topics []string, bufMessage chan Message) error {
 	done := make(chan bool)
 	for _, topic := range topics {
 		if strings.Contains(topic, "__consumer_offsets") {
@@ -154,7 +154,7 @@ func BodyParse(bin []byte, p interface{}) error {
 	return json.Unmarshal(bin, p)
 }
 
-func (ps *KafClient) ListTopics(brokers ...string) ([]string, error) {
+func (ps *Client) ListTopics(brokers ...string) ([]string, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	cluster, err := sarama.NewConsumer(brokers, config)
@@ -167,7 +167,7 @@ func (ps *KafClient) ListTopics(brokers ...string) ([]string, error) {
 	}()
 	return cluster.Topics()
 }
-func (ps *KafClient) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
+func (ps *Client) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
 	// ps.onAsyncSubscribe(topics, numberPuller, buf)
 	for {
 		ps.onAsyncSubscribe(topics, numberPuller, buf)
@@ -178,7 +178,7 @@ func (ps *KafClient) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf cha
 }
 
 // onAsyncSubscribe listener
-func (ps *KafClient) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
+func (ps *Client) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
 	txtTopics := []string{}
 	autoCommit := map[string]bool{}
 	allTopics, err := ps.ListTopics(ps.brokerURLs...)
@@ -326,7 +326,7 @@ func (consumer *ConsumerGroupHandle) ConsumeClaim(session sarama.ConsumerGroupSe
 	return nil
 }
 
-func (ps *KafClient) Close() error {
+func (ps *Client) Close() error {
 	if ps.consumer != nil {
 		if err := ps.consumer.Close(); err != nil {
 			return err

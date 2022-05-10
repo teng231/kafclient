@@ -34,14 +34,14 @@ type Topic struct {
 	IsNeedManualCreateTopic bool
 }
 
-type KafClientConfig struct {
-	KafkaVersion           string // default : 2.5.0
-	BrokerURLs             []string
-	KafkaNumerberPartition int // default: using 3 partitions
-	KafkaReplicationFactor int // default: -1
-}
+// type KafClientConfig struct {
+// 	KafkaVersion           string // default : 2.5.0
+// 	BrokerURLs             []string
+// 	KafkaNumerberPartition int // default: using 3 partitions
+// 	KafkaReplicationFactor int // default: -1
+// }
 
-type KafClient struct {
+type Client struct {
 	brokerURLs    []string
 	mProducer     sync.Map
 	group         sarama.ConsumerGroup
@@ -51,7 +51,7 @@ type KafClient struct {
 	consumerGroup string
 }
 
-type IKafClient interface {
+type IClient interface {
 	InitConsumerGroup(consumerGroup string, brokerURLs ...string) error
 	// InitConsumer depredicated
 	InitConsumer(brokerURLs ...string) error
