@@ -1,11 +1,19 @@
-package pubsub
+package kafclient
 
 import (
+	"log"
 	"os"
 	"sync"
 
 	"github.com/Shopify/sarama"
 )
+
+func init() {
+	log.SetFlags(log.Lshortfile)
+	if kafkaVersion == "" {
+		kafkaVersion = "2.5.0"
+	}
+}
 
 var (
 	NUM_PARTITION      = 3
@@ -26,22 +34,24 @@ type Topic struct {
 	IsNeedManualCreateTopic bool
 }
 
-type PubSubConfig struct {
+type KafClientConfig struct {
 	KafkaVersion           string // default : 2.5.0
 	BrokerURLs             []string
 	KafkaNumerberPartition int // default: using 3 partitions
 	KafkaReplicationFactor int // default: -1
 }
 
-type PubSub struct {
-	brokerURLs   []string
-	mProducer    sync.Map
-	group        sarama.ConsumerGroup
-	consumer     sarama.Consumer // for using consumer mode
-	kafkaVersion sarama.KafkaVersion
+type KafClient struct {
+	brokerURLs    []string
+	mProducer     sync.Map
+	group         sarama.ConsumerGroup
+	consumer      sarama.Consumer // for using consumer mode
+	kafkaVersion  sarama.KafkaVersion
+	reconnect     chan bool
+	consumerGroup string
 }
 
-type IPubsub interface {
+type IKafClient interface {
 	InitConsumerGroup(consumerGroup string, brokerURLs ...string) error
 	// InitConsumer depredicated
 	InitConsumer(brokerURLs ...string) error
@@ -79,4 +89,12 @@ type ConsumerGroupHandle struct {
 	lock       chan bool
 	bufMessage chan Message
 	autoCommit map[string]bool
+}
+
+func ToInt32(in *int32) int32 {
+	return *in
+}
+
+func ToPInt32(in int32) *int32 {
+	return &in
 }

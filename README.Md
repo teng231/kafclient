@@ -1,14 +1,14 @@
-# Psub
-
+# Kafclient
+> move by teng231/kafclient
 helper for create system using kafka to streaming and events driven base.
 
-[![Go](https://github.com/teng231/psub/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/teng231/psub/actions/workflows/go.yml)
-[![Go Reference](https://pkg.go.dev/badge/github.com/princjef/gomarkdoc.svg)](https://pkg.go.dev/github.com/teng231/psub)
+[![Go](https://github.com/teng231/kafclient/actions/workflows/go.yml/badge.svg?branch=master)](https://github.com/teng231/kafclient/actions/workflows/go.yml)
+[![Go Reference](https://pkg.go.dev/badge/github.com/princjef/gomarkdoc.svg)](https://pkg.go.dev/github.com/teng231/kafclient)
 
 ### Install
 
 ``` bash
- go get github.com/teng231/psub
+ go get github.com/teng231/kafclient
 ```
 have 3 env variables for config:
 * KAFKA_NUM_PARTITION: config number of partition( default: 3)
@@ -25,11 +25,11 @@ For example to setup:
 * Both setup
 
 ``` go
-func NewPubSub() error {
-	ps := &psub.PubSub{}
+func NewKafClient() error {
+	ps := &psub.KafClient{}
 	brokers := strings.Split("localhost:9002,localhost:9003", ",")
 	ps.InitPublisher(brokers...)
-	err := ps.InitConsumerGroup(cf.PubsubSubscription, brokers...)
+	err := ps.InitConsumerGroup(cf.KafClientSubscription, brokers...)
 	if err != nil {
 		return err
 	}
@@ -44,8 +44,8 @@ func NewPubSub() error {
 
 ``` go
 
-func NewPubSub() error {
-	ps := &psub.PubSub{}
+func NewKafClient() error {
+	ps := &psub.KafClient{}
 	brokers := strings.Split("localhost:9002,localhost:9003", ",")
 	ps.InitPublisher(brokers...)
 	if err != nil {
@@ -82,10 +82,10 @@ func main() {
 }
 
 
-func NewPubSub() error {
-	ps := &psub.PubSub{}
+func NewKafClient() error {
+	ps := &psub.KafClient{}
 	brokers := strings.Split("localhost:9002,localhost:9003", ",")
-	err := ps.InitConsumerGroup(cf.PubsubSubscription, brokers...)
+	err := ps.InitConsumerGroup(cf.KafClientSubscription, brokers...)
 	if err != nil {
 		return err
 	}
@@ -151,26 +151,26 @@ func onListenUserInsert(payload []byte, h *Account, fnCommit func()) {
 
 type MsgHandler struct {
 	f     func([]byte, *Account, func())
-	topic *pubsub.Topic
+	topic *KafClient.Topic
 }
 
 var (
 	backend_user_insert_user = "backend_user_insert_user"
     numberOfConcurrents = 1
 	subsList                   = map[string]*MsgHandler{
-		backend_user_insert_user: {onListenUserInsert, &pubsub.Topic{
+		backend_user_insert_user: {onListenUserInsert, &KafClient.Topic{
 			Name:       backend_user_insert_user,
 			AutoCommit: false,
 		}},
 	}
 )
 
-func onStreamRunning(ps *pubsub.PubSub, h *Account) {
+func onStreamRunning(ps *KafClient.KafClient, h *Account) {
 	log.Print("Stream start")
-	msgBuf := make(chan pubsub.Message, 1000)
+	msgBuf := make(chan KafClient.Message, 1000)
 
 	numberOfConcurrents := 1
-	topics := make([]*pubsub.Topic, 0, 100)
+	topics := make([]*KafClient.Topic, 0, 100)
 
 	for _, msghandler := range kafkaTopics {
 		topics = append(topics, msghandler.topic)

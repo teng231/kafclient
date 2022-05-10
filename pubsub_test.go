@@ -1,4 +1,4 @@
-package pubsub
+package kafclient
 
 import (
 	"log"
@@ -27,7 +27,7 @@ type User struct {
 //**************** Test send message to topic using sync **********************/
 
 func testPublishMessages(brokerURL, topic string, count int) {
-	ps := &PubSub{}
+	ps := &KafClient{}
 	brokers := strings.Split(brokerURL, ",")
 
 	ps.InitPublisher(brokers...)
@@ -49,7 +49,7 @@ func TestPuslishMessages(t *testing.T) {
 
 // ***** Test send message with config ****/
 func testPuslishMessagesWithConfig(brokerURL, topic1, topic2 string) {
-	ps := &PubSub{}
+	ps := &KafClient{}
 	brokers := strings.Split(brokerURL, ",")
 
 	ps.InitPublisher(brokers...)
@@ -82,7 +82,7 @@ func TestPuslishMessagesWithConfig(t *testing.T) {
 
 //**************** Test handle message when listen event auto commit **********************/
 func testSubscribeSimpleAutoCommit(brokerURL, group, topic1, topic2 string) {
-	ps := &PubSub{}
+	ps := &KafClient{}
 	brokers := strings.Split(brokerURL, ",")
 
 	err := ps.InitConsumerGroup(group, brokers...)
@@ -115,7 +115,7 @@ func TestSubscribeSimpleAutoCommit(t *testing.T) {
 
 // ********** Test listen message when listen message and manual commit ****/
 func testSubscribeSimpleManualCommit(brokerURL, group, topic string) {
-	ps := &PubSub{}
+	ps := &KafClient{}
 	brokers := strings.Split(brokerURL, ",")
 
 	err := ps.InitConsumerGroup(group, brokers...)
@@ -146,7 +146,7 @@ func TestSubscribeSimpleManualCommit(t *testing.T) {
 }
 
 func TestListTopic(t *testing.T) {
-	ps := &PubSub{}
+	ps := &KafClient{}
 	brokers := strings.Split("0.0.0.0:9092", ",")
 	ts, err := ps.ListTopics(brokers...)
 	log.Print(ts, err)

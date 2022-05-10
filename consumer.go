@@ -1,4 +1,4 @@
-package pubsub
+package kafclient
 
 import (
 	"context"
@@ -12,32 +12,7 @@ import (
 	"github.com/Shopify/sarama"
 )
 
-func init() {
-	log.SetFlags(log.Lshortfile)
-	if kafkaVersion == "" {
-		kafkaVersion = "2.5.0"
-	}
-}
-func ToInt32(in *int32) int32 {
-	return *in
-}
-
-func ToPInt32(in int32) *int32 {
-	return &in
-}
-
-func makeKafkaConfigPublisher(partitioner sarama.PartitionerConstructor) *sarama.Config {
-	config := sarama.NewConfig()
-	config.Producer.Retry.Max = 5
-	config.Producer.RequiredAcks = sarama.WaitForAll
-	config.Producer.Return.Successes = true
-	// config.Producer.Partitioner = sarama.NewManualPartitioner()
-	config.Producer.Partitioner = partitioner
-	// publisherConfig = config
-	return config
-}
-
-func newConsumerGroup(consumerGroup string, brokerURLs ...string) (sarama.ConsumerGroup, error) {
+func newConsumerGroup(consumerGroup string, reconnect chan bool, brokerURLs ...string) (sarama.ConsumerGroup, error) {
 	config := sarama.NewConfig()
 	// config.ClientID = clientid
 	config.Consumer.Return.Errors = true
@@ -69,6 +44,7 @@ func newConsumerGroup(consumerGroup string, brokerURLs ...string) (sarama.Consum
 	go func() {
 		for err := range group.Errors() {
 			log.Println("ERROR:", err)
+			sarama.NewConsumerGroupFromClient(consumerGroup, client)
 		}
 	}()
 	return group, nil
@@ -94,39 +70,7 @@ func newConsumer(brokerURLs ...string) (sarama.Consumer, error) {
 	return consumer, nil
 }
 
-func newPublisher(topic string, brokerURLs ...string) (sarama.SyncProducer, error) {
-	config := makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
-	prd, err := sarama.NewSyncProducer(brokerURLs, config)
-	if err != nil {
-		return nil, err
-	}
-	return prd, nil
-}
-
-func newAsyncPublisher(topic string, brokerURLs ...string) (sarama.AsyncProducer, error) {
-	config := makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
-	prd, err := sarama.NewAsyncProducer(brokerURLs, config)
-	if err != nil {
-		return nil, err
-	}
-	return prd, nil
-}
-
-func newPublisherWithConfigPartitioner(topic *Topic, brokerURLs ...string) (sarama.SyncProducer, error) {
-	var config *sarama.Config
-	if topic.Partition == nil {
-		config = makeKafkaConfigPublisher(sarama.NewRandomPartitioner)
-	} else if ToInt32(topic.Partition) >= 0 {
-		config = makeKafkaConfigPublisher(sarama.NewManualPartitioner)
-	}
-	prd, err := sarama.NewSyncProducer(brokerURLs, config)
-	if err != nil {
-		return nil, err
-	}
-	return prd, nil
-}
-
-func (ps *PubSub) createTopic(topic string) error {
+func (ps *KafClient) createTopic(topic string) error {
 	config := sarama.NewConfig()
 	config.Version = ps.kafkaVersion
 	admin, err := sarama.NewClusterAdmin(ps.brokerURLs, config)
@@ -146,16 +90,18 @@ func (ps *PubSub) createTopic(topic string) error {
 	return err
 }
 
-func (ps *PubSub) InitConsumerGroup(consumerGroup string, brokerURLs ...string) error {
-	client, err := newConsumerGroup(consumerGroup, brokerURLs...)
+func (ps *KafClient) InitConsumerGroup(consumerGroup string, brokerURLs ...string) error {
+	client, err := newConsumerGroup(consumerGroup, ps.reconnect, brokerURLs...)
 	if err != nil {
 		return err
 	}
 	ps.group = client
 	ps.brokerURLs = brokerURLs
+	ps.consumerGroup = consumerGroup
+	// ps.reconnect = make(chan bool)
 	return nil
 }
-func (ps *PubSub) InitConsumer(brokerURLs ...string) error {
+func (ps *KafClient) InitConsumer(brokerURLs ...string) error {
 	client, err := newConsumer(brokerURLs...)
 	if err != nil {
 		return err
@@ -165,131 +111,7 @@ func (ps *PubSub) InitConsumer(brokerURLs ...string) error {
 	return nil
 }
 
-// InitPublisher init with addr is url of lookupd
-func (ps *PubSub) InitPublisher(brokerURLs ...string) {
-	ps.brokerURLs = brokerURLs
-	// ps.producers = make(map[string]sarama.SyncProducer)
-}
-
-// Publish sync publish message
-func (p *PubSub) Publish(topic string, messages ...interface{}) error {
-	if strings.Contains(topic, "__consumer_offsets") {
-		return errors.New("topic fail")
-	}
-
-	if _, ok := p.mProducer.Load(topic); !ok {
-		producer, err := newPublisher(topic, p.brokerURLs...)
-		if err != nil {
-			log.Print("[sarama]:", err, "]: topic", topic)
-			return err
-		}
-		p.mProducer.Store(topic, producer)
-	}
-	listMsg := make([]*sarama.ProducerMessage, 0)
-	for _, msg := range messages {
-		bin, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("[sarama] error: %v[sarama] msg: %v", err, msg)
-		}
-		msg := &sarama.ProducerMessage{
-			Topic:     topic,
-			Value:     sarama.StringEncoder(bin),
-			Partition: -1,
-		}
-		// asyncProducer.(sarama.AsyncProducer).Input() <- msg
-		listMsg = append(listMsg, msg)
-	}
-	syncProducer, ok := p.mProducer.Load(topic)
-	if !ok {
-		log.Print("not found any sync Producer")
-	}
-	err := syncProducer.(sarama.SyncProducer).SendMessages(listMsg)
-	return err
-}
-
-// AsyncPublish async publish message
-func (p *PubSub) AsyncPublish(topic string, messages ...interface{}) error {
-	if strings.Contains(topic, "__consumer_offsets") {
-		return errors.New("topic fail")
-	}
-
-	if _, ok := p.mProducer.Load(topic); !ok {
-		producer, err := newAsyncPublisher(topic, p.brokerURLs...)
-		if err != nil {
-			log.Print("[sarama]:", err, "]: topic", topic)
-			return err
-		}
-		p.mProducer.Store(topic, producer)
-	}
-	asyncProducer, _ := p.mProducer.Load(topic)
-	for _, msg := range messages {
-		bin, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("[sarama] error: %v[sarama] msg: %v", err, msg)
-		}
-		msg := &sarama.ProducerMessage{
-			Topic:     topic,
-			Value:     sarama.StringEncoder(bin),
-			Partition: -1,
-		}
-		asyncProducer.(sarama.AsyncProducer).Input() <- msg
-	}
-	return nil
-}
-
-// PublishWithConfig sync publish message with select config
-// Sender config help config producerMessage
-func (p *PubSub) PublishWithConfig(topic *Topic, config *SenderConfig, messages ...interface{}) error {
-	if strings.Contains(topic.Name, "__consumer_offsets") {
-		return errors.New("topic fail")
-	}
-	if _, ok := p.mProducer.Load(topic); !ok {
-		producer, err := newPublisherWithConfigPartitioner(topic, p.brokerURLs...)
-		if err != nil {
-			log.Print("[sarama]:", err, "]: topic", topic)
-			return err
-		}
-		p.mProducer.Store(topic, producer)
-	}
-	listMsg := make([]*sarama.ProducerMessage, 0)
-	for _, msg := range messages {
-		bin, err := json.Marshal(msg)
-		if err != nil {
-			log.Printf("[sarama] error: %v[sarama] msg: %v", err, msg)
-		}
-		pmsg := &sarama.ProducerMessage{
-			Topic:     topic.Name,
-			Value:     sarama.StringEncoder(bin),
-			Partition: -1,
-		}
-		if topic.Partition != nil {
-			pmsg.Partition = ToInt32(topic.Partition)
-		}
-
-		if config != nil {
-			pmsg.Metadata = config.Metadata
-			if len(config.Headers) > 0 {
-				for k, v := range config.Headers {
-					pmsg.Headers = append(pmsg.Headers, sarama.RecordHeader{Key: []byte(k), Value: []byte(v)})
-				}
-			}
-		}
-		listMsg = append(listMsg, pmsg)
-
-	}
-	syncProducer, ok := p.mProducer.Load(topic)
-	if !ok {
-		log.Print("not found any sync Producer")
-	}
-	err := syncProducer.(sarama.SyncProducer).SendMessages(listMsg)
-	return err
-}
-
-func BodyParse(bin []byte, p interface{}) error {
-	return json.Unmarshal(bin, p)
-}
-
-func (ps *PubSub) OnScanMessages(topics []string, bufMessage chan Message) error {
+func (ps *KafClient) OnScanMessages(topics []string, bufMessage chan Message) error {
 	done := make(chan bool)
 	for _, topic := range topics {
 		if strings.Contains(topic, "__consumer_offsets") {
@@ -328,7 +150,11 @@ func (ps *PubSub) OnScanMessages(topics []string, bufMessage chan Message) error
 	return nil
 }
 
-func (ps *PubSub) ListTopics(brokers ...string) ([]string, error) {
+func BodyParse(bin []byte, p interface{}) error {
+	return json.Unmarshal(bin, p)
+}
+
+func (ps *KafClient) ListTopics(brokers ...string) ([]string, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 	cluster, err := sarama.NewConsumer(brokers, config)
@@ -341,9 +167,18 @@ func (ps *PubSub) ListTopics(brokers ...string) ([]string, error) {
 	}()
 	return cluster.Topics()
 }
+func (ps *KafClient) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
+	// ps.onAsyncSubscribe(topics, numberPuller, buf)
+	for {
+		ps.onAsyncSubscribe(topics, numberPuller, buf)
+		time.Sleep(10 * time.Second)
+		log.Print("try reconnecting ....")
+		ps.InitConsumerGroup(ps.consumerGroup, ps.brokerURLs...)
+	}
+}
 
-// OnAsyncSubscribe listener
-func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
+// onAsyncSubscribe listener
+func (ps *KafClient) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
 	txtTopics := []string{}
 	autoCommit := map[string]bool{}
 	allTopics, err := ps.ListTopics(ps.brokerURLs...)
@@ -390,6 +225,8 @@ func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 				err := ps.group.Consume(ctx, txtTopics, consumer)
 				if err != nil {
 					log.Printf("[psub]: %v", err)
+					consumer.wg.Done()
+					consumer.lock <- true
 					break
 				}
 				consumer.wg = &sync.WaitGroup{}
@@ -401,7 +238,6 @@ func (ps *PubSub) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 	consumer.wg.Wait()
 	log.Print("[kafka] start all worker")
 	<-consumer.lock
-	log.Print(<-ps.group.Errors())
 	cancel()
 	if err := ps.group.Close(); err != nil {
 		log.Printf("Error closing client: %v", err)
@@ -490,7 +326,7 @@ func (consumer *ConsumerGroupHandle) ConsumeClaim(session sarama.ConsumerGroupSe
 	return nil
 }
 
-func (ps *PubSub) Close() error {
+func (ps *KafClient) Close() error {
 	if ps.consumer != nil {
 		if err := ps.consumer.Close(); err != nil {
 			return err

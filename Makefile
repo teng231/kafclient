@@ -1,9 +1,9 @@
 publisher-simple:
-	go test --run=TestPuslishMessages
+	go test --run=^TestPuslishMessages$
 subscribe-simple:
-	CG=group-0 go test --run=TestSubscribeSimpleManualCommit
+	CG=group-0 go test --run=^TestSubscribeSimpleManualCommit$
 pubsub-simple:
-	CG=group-0 go test --run=TestSimplePublishAndSubscibe
+	CG=group-0 go test --run=^TestSimplePublishAndSubscibe$
 benchmark-publish-100:
 	go test -benchmem -bench=BenchmarkPublishMessages100z -run=^a
 benchmark-publish-10000:
