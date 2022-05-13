@@ -1,3 +1,8 @@
+# v1.2.4 BIG Update
+- hotfix issue kafka of sarama
+# v1.2.3 BIG Update
+- Change struct name `PubSub` to `Client`
+- Change interface IPubSub to IClient
 # v1.1.6
 - Add Async publish, send message async
 - Update sarama. because v1.31.1 publisher deadlock
