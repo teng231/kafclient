@@ -169,16 +169,24 @@ func (ps *Client) ListTopics(brokers ...string) ([]string, error) {
 }
 func (ps *Client) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
 	// ps.onAsyncSubscribe(topics, numberPuller, buf)
+	var err error
 	for {
-		ps.onAsyncSubscribe(topics, numberPuller, buf)
+		err = ps.onAsyncSubscribe(topics, numberPuller, buf)
+		if err == nil {
+			break
+		}
 		time.Sleep(10 * time.Second)
 		log.Print("try reconnecting ....")
 		ps.InitConsumerGroup(ps.consumerGroup, ps.brokerURLs...)
 	}
+	return err
 }
 
 // onAsyncSubscribe listener
 func (ps *Client) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
+	if len(topics) == 0 {
+		return nil
+	}
 	txtTopics := []string{}
 	autoCommit := map[string]bool{}
 	allTopics, err := ps.ListTopics(ps.brokerURLs...)
