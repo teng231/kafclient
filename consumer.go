@@ -20,6 +20,7 @@ func newConsumerGroup(consumerGroup string, reconnect chan bool, brokerURLs ...s
 	config.Consumer.Group.Heartbeat.Interval = 6 * time.Second
 	config.Consumer.MaxProcessingTime = 500 * time.Millisecond
 	// config.Consumer.Group.Rebalance.Strategy = sarama.BalanceStrategyRoundRobin
+	// config.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.BalanceStrategyRoundRobin}
 	version, err := sarama.ParseKafkaVersion(kafkaVersion)
 	if err != nil {
 		log.Printf("Error parsing Kafka version: %v", err)

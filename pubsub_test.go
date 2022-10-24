@@ -26,6 +26,43 @@ type User struct {
 
 //**************** Test send message to topic using sync **********************/
 
+func TestNormalCaseSync(t *testing.T) {
+	ps := &Client{}
+	brokers := strings.Split("0.0.0.0:9092", ",")
+
+	ps.InitPublisher(brokers...)
+	log.Print("init done publiser")
+	for i := 1; i <= 30; i++ {
+		err := ps.Publish("topic-0", &User{
+			Name: "hoa",
+			Age:  i,
+		})
+		log.Print(i, err)
+		time.Sleep(100 * time.Millisecond)
+	}
+	defer ps.Close()
+	err := ps.InitConsumerGroup("CG-0", brokers...)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	log.Print("init done consumer")
+	buff := make(chan Message, 20)
+	go func() {
+		for {
+			d := <-buff
+			user := &User{}
+			BodyParse(d.Body, user)
+			log.Print(d.Headers, d.Partition, user, " ", d.Partition)
+			d.Commit()
+		}
+	}()
+	err = ps.OnAsyncSubscribe([]*Topic{{
+		"topic-0", false, nil, false,
+	}}, 1, buff)
+	log.Print(err)
+}
+
 func testPublishMessages(brokerURL, topic string, count int) {
 	ps := &Client{}
 	brokers := strings.Split(brokerURL, ",")
@@ -38,7 +75,6 @@ func testPublishMessages(brokerURL, topic string, count int) {
 			Age:  i,
 		})
 		log.Print(i, err)
-		// time.Sleep(100 * time.Millisecond)
 	}
 	ps.Close()
 }
