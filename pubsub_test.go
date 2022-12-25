@@ -28,7 +28,7 @@ type User struct {
 
 func TestNormalCaseSync(t *testing.T) {
 	ps := &Client{}
-	brokers := strings.Split("0.0.0.0:9092", ",")
+	brokers := strings.Split("localhost:9092", ",")
 
 	ps.InitPublisher(brokers...)
 	log.Print("init done publiser")
