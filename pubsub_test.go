@@ -217,3 +217,18 @@ func BenchmarkPublishMessages10000z(b *testing.B) {
 func BenchmarkSubscribeSimpleManualCommit(b *testing.B) {
 	testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-1", "topic-5")
 }
+
+func TestSimplePublishAndSubscibeResub(t *testing.T) {
+	lock := make(chan bool)
+	go t.Run("subscribe 1", func(t *testing.T) {
+		testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-0", "topic-3")
+	})
+	go t.Run("subscribe 2", func(t *testing.T) {
+		testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-1", "topic-3")
+	})
+	time.Sleep(5 * time.Second)
+	t.Run("publish to topic", func(t *testing.T) {
+		testPublishMessages("0.0.0.0:9092", "topic-3", 20)
+	})
+	<-lock
+}
