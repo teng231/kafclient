@@ -235,7 +235,6 @@ func (ps *Client) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 				err := ps.group.Consume(ctx, txtTopics, consumer)
 				if err != nil {
 					log.Printf("[psub]: %v", err)
-					consumer.wg.Done()
 					consumer.lock <- true
 					break
 				}
