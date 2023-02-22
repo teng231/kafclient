@@ -173,19 +173,21 @@ func (ps *Client) OnAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 	var err error
 	for {
 		err = ps.onAsyncSubscribe(topics, numberPuller, buf)
-		if err == nil {
-			break
+		if err != nil {
+			log.Print(err)
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(5 * time.Second)
 		log.Print("try reconnecting ....")
 		ps.InitConsumerGroup(ps.consumerGroup, ps.brokerURLs...)
+
 	}
-	return err
+	// return err
 }
 
 // onAsyncSubscribe listener
 func (ps *Client) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan Message) error {
 	if len(topics) == 0 {
+		log.Print("not found topics")
 		return nil
 	}
 	txtTopics := []string{}
@@ -221,10 +223,8 @@ func (ps *Client) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 		lock:       make(chan bool),
 		autoCommit: autoCommit,
 	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	consumer.wg.Add(numberPuller)
-
 	for i := 0; i < numberPuller; i++ {
 		go func() {
 			defer consumer.wg.Done()
@@ -236,27 +236,32 @@ func (ps *Client) onAsyncSubscribe(topics []*Topic, numberPuller int, buf chan M
 				if err != nil {
 					log.Printf("[psub]: %v", err)
 					consumer.lock <- true
+					log.Print("con gi nua dau 4445555")
+
 					break
 				}
-				log.Print("ssssss")
-				// check if context was cancelled, signaling that the consumer should stop
-				if ctx.Err() != nil {
-					return
-				}
-				consumer.wg = &sync.WaitGroup{}
-				consumer.wg.Add(numberPuller)
+				// // check if context was cancelled, signaling that the consumer should stop
+				// if ctx.Err() != nil {
+				// 	log.Print("con gi nua dau 4444 ", ctx.Err())
+
+				// 	return
+				// }
+				// consumer.lock = make(chan bool)
+				// log.Print("con gi nua dau 222")
+
 			}
 		}()
 	}
 
-	consumer.wg.Wait()
 	log.Print("[kafka] start all worker")
 	<-consumer.lock
 	cancel()
+	consumer.wg.Wait()
 	if err := ps.group.Close(); err != nil {
 		log.Printf("Error closing client: %v", err)
 		return err
 	}
+	log.Print("con gi nua dau")
 	return nil
 }
 
@@ -287,7 +292,7 @@ func messageHandler(m *sarama.ConsumerMessage, bufMessage chan Message) error {
 func (consumer *ConsumerGroupHandle) Setup(ss sarama.ConsumerGroupSession) error {
 	// Mark the consumer as ready
 	log.Print("done: ", ss.MemberID())
-	consumer.wg.Done()
+	// close(consumer.lock)
 	return nil
 }
 
