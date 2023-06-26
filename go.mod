@@ -1,4 +1,4 @@
-module github.com/teng231/kafclient
+module github.com/teng231/kafclient/v2
 
 go 1.18
 
