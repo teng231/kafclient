@@ -2,7 +2,10 @@ module github.com/teng231/kafclient
 
 go 1.18
 
-require github.com/Shopify/sarama v1.38.1
+require (
+	github.com/Shopify/sarama v1.38.1
+	github.com/segmentio/kafka-go v0.4.40
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
