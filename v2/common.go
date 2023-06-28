@@ -1,6 +1,7 @@
 package kafclient
 
 import (
+	"context"
 	"crypto/md5"
 	"encoding/hex"
 
@@ -39,4 +40,16 @@ func (k *Client) SetAddrs(addrs []string) {
 func (k *Client) HealthCheckBroker() {
 	// client := kafka.NewReader()
 	// k.addrs = addrs
+}
+
+type IClient interface {
+	SetAddrs(addrs []string)
+	Listen(ctx context.Context, cMgs chan *Message) error
+	ListenWithAutoCommit(ctx context.Context, cMgs chan *Message) error
+	NewConsumer(consumerGroup string, topics []string)
+	IsWriters() bool
+
+	NewPublisher() error
+	Publish(ctx context.Context, topic string, msg interface{}) error
+	IsReaderConnected() bool
 }
