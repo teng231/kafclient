@@ -21,16 +21,18 @@ func (k *Client) NewPublisher() error {
 		return errors.New("not found broker")
 	}
 	dialer := &kafka.Dialer{
-		// Timeout:   10 * time.Second,
 		DualStack: true,
 		Timeout:   1 * time.Second,
 		// TLS:       &tls.Config{...tls config...},
 	}
+
 	w := kafka.NewWriter(kafka.WriterConfig{
 		Brokers:  k.addrs,
-		Balancer: &kafka.LeastBytes{},
+		Balancer: &kafka.RoundRobin{},
 		Dialer:   dialer,
+		// Logger:   kafka.LoggerFunc(log.Printf),
 	})
+
 	if w == nil {
 		log.Print("empty writer")
 	}

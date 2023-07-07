@@ -3,11 +3,21 @@ package kafclient
 import (
 	"context"
 	"log"
+	"math/rand"
 	"time"
 
 	"github.com/segmentio/kafka-go"
 )
 
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+func RandStringBytes(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letterBytes[rand.Intn(len(letterBytes))]
+	}
+	return string(b)
+}
 func (k *Client) IsWriters() bool {
 	if k.writer == nil {
 		return false
@@ -20,6 +30,7 @@ func (k *Client) NewConsumer(consumerGroup string, topics []string) {
 		Timeout:   3 * time.Second,
 		DualStack: true,
 		KeepAlive: 5 * time.Second,
+		ClientID:  RandStringBytes(5),
 	}
 	k.readers = make(map[string]*kafka.Reader)
 	for _, topic := range topics {
@@ -33,6 +44,7 @@ func (k *Client) NewConsumer(consumerGroup string, topics []string) {
 		if r == nil {
 			log.Print("empty reader")
 		}
+		log.Printf("Listen: %s, %d, [%s]", r.Stats().Partition, r.Stats().QueueCapacity, r.Stats().Topic)
 		k.readers[topic] = r
 	}
 }
@@ -47,7 +59,7 @@ func (k *Client) Listen(ctx context.Context, cMgs chan *Message) error {
 				m, err := r.FetchMessage(ctx) // is not auto commit
 				if err != nil {
 					log.Print(err)
-					time.Sleep(3 * time.Second)
+					time.Sleep(1 * time.Second)
 					continue
 				}
 				cMgs <- &Message{
@@ -78,7 +90,7 @@ func (k *Client) ListenWithAutoCommit(ctx context.Context, cMgs chan *Message) e
 				m, err := r.ReadMessage(ctx) // is auto commit
 				if err != nil {
 					log.Print(err)
-					time.Sleep(3 * time.Second)
+					time.Sleep(1 * time.Second)
 					continue
 				}
 				cMgs <- &Message{

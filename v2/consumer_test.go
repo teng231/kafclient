@@ -4,31 +4,57 @@ import (
 	"context"
 	"log"
 	"testing"
+	"time"
 )
 
-func TestSendMessage(t *testing.T) {
+func TestListenMessageAutoCommit(t *testing.T) {
 	kclient := &Client{}
 	kclient.SetAddrs([]string{"localhost:9092"})
-	kclient.NewPublisher()
-	for i := 0; i < 100; i++ {
-		err := kclient.Publish(context.TODO(), "topic-1", map[string]interface{}{
-			"meta":  "tester2",
-			"index": i,
-			"topic": "topic-1",
-		})
-		if err != nil {
-			log.Print(err)
-		}
+	kclient.NewConsumer("tete1", []string{"topic-1", "topic-2"})
+	cmsg := make(chan *Message, 1000)
+	log.Print("Listen message 1")
+	kclient.ListenWithAutoCommit(context.Background(), cmsg)
+	log.Print("Listen message 2")
+	for msg := range cmsg {
+		log.Print(string(msg.Body))
 	}
-	for i := 0; i < 10; i++ {
-		err := kclient.Publish(context.TODO(), "topic-2", map[string]interface{}{
-			"meta":  "tester3",
-			"index": i,
-			"topic": "topic-2",
-		})
-		if err != nil {
-			log.Print(err)
-		}
+	time.Sleep(10 * time.Second)
+}
+func TestListenMessageManual(t *testing.T) {
+	kclient := &Client{}
+	kclient.SetAddrs([]string{"localhost:9092"})
+	kclient.NewConsumer("tete2", []string{"topic-1", "topic-2"})
+	cmsg := make(chan *Message, 1000)
+	log.Print("Listen message 1")
+	kclient.Listen(context.Background(), cmsg)
+	log.Print("Listen message 2")
+	for msg := range cmsg {
+		log.Print(msg, string(msg.Body))
+		msg.Commit()
 	}
+	time.Sleep(10 * time.Second)
+}
 
+// go test --run TestListenMessageManual
+
+func TestListenMessageManual2(t *testing.T) {
+	kclient := &Client{}
+	kclient.SetAddrs([]string{"b-1.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092", "b-2.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092"})
+	kclient.NewConsumer("tete2", []string{"topic-0", "topic-1", "topic-2",
+		"topic-3",
+		"topic-4x",
+		"topic-5x",
+		"topic-6x",
+	})
+	cmsg := make(chan *Message, 1000)
+	log.Print("Listen message 1")
+	kclient.Listen(context.Background(), cmsg)
+	log.Print("Listen message 2")
+	for msg := range cmsg {
+		// b, _ := json.MarshalIndent(msg, "", " ")
+		log.Printf("[%s] - part: %d - %s", msg.Topic, msg.Partition, string(msg.Body))
+		log.Print(msg)
+		msg.Commit()
+	}
+	time.Sleep(10 * time.Second)
 }

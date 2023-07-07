@@ -4,33 +4,94 @@ import (
 	"context"
 	"log"
 	"testing"
-	"time"
 )
 
-func TestListenMessageAutoCommit(t *testing.T) {
+func TestSendMessage(t *testing.T) {
 	kclient := &Client{}
 	kclient.SetAddrs([]string{"localhost:9092"})
-	kclient.NewConsumer("tete1", []string{"topic-1", "topic-2"})
-	cmsg := make(chan *Message, 1000)
-	log.Print("Listen message 1")
-	kclient.ListenWithAutoCommit(context.Background(), cmsg)
-	log.Print("Listen message 2")
-	for msg := range cmsg {
-		log.Print(string(msg.Body))
+	kclient.NewPublisher()
+	for i := 0; i < 100; i++ {
+		err := kclient.Publish(context.TODO(), "topic-1", map[string]interface{}{
+			"meta":  "tester2",
+			"index": i,
+			"topic": "topic-1",
+		})
+		if err != nil {
+			log.Print("báo lỗi:", err)
+		}
 	}
-	time.Sleep(10 * time.Second)
+	// for i := 0; i < 10; i++ {
+	// 	err := kclient.Publish(context.TODO(), "topic-2", map[string]interface{}{
+	// 		"meta":  "tester3",
+	// 		"index": i,
+	// 		"topic": "topic-2",
+	// 	})
+	// 	if err != nil {
+	// 		log.Print(err)
+	// 	}
+	// }
+
 }
-func TestListenMessage2(t *testing.T) {
+
+func TestSendMessage2(t *testing.T) {
 	kclient := &Client{}
-	kclient.SetAddrs([]string{"localhost:9092"})
-	kclient.NewConsumer("tete2", []string{"topic-1", "topic-2"})
-	cmsg := make(chan *Message, 1000)
-	log.Print("Listen message 1")
-	kclient.Listen(context.Background(), cmsg)
-	log.Print("Listen message 2")
-	for msg := range cmsg {
-		log.Print(string(msg.Body))
-		msg.Commit()
+	kclient.SetAddrs([]string{"b-1.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092", "b-2.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092"})
+	kclient.NewPublisher()
+	// go func() {
+	// 	for i := 0; i < 100; i++ {
+	// 		err := kclient.Publish(context.TODO(), "topic-4x", map[string]interface{}{
+	// 			"meta":  "tester2",
+	// 			"index": i,
+	// 			"topic": "topic-2",
+	// 		})
+	// 		if err != nil {
+	// 			log.Print(err)
+	// 		}
+	// 	}
+	// }()
+	// go func() {
+	// 	for i := 0; i < 100; i++ {
+	// 		err := kclient.Publish(context.TODO(), "topic-5x", map[string]interface{}{
+	// 			"meta":  "tester2",
+	// 			"index": i,
+	// 			"topic": "topic-0",
+	// 		})
+	// 		if err != nil {
+	// 			log.Print(err)
+	// 		}
+	// 	}
+	// }()
+	// go func() {
+	// 	for i := 0; i < 100; i++ {
+	// 		err := kclient.Publish(context.TODO(), "topic-3", map[string]interface{}{
+	// 			"meta":  "tester2",
+	// 			"index": i,
+	// 			"topic": "topic-3",
+	// 		})
+	// 		if err != nil {
+	// 			log.Print(err)
+	// 		}
+	// 	}
+	// }()
+	for i := 0; i < 130; i++ {
+		err := kclient.Publish(context.TODO(), "topic-6x", map[string]interface{}{
+			"meta":  "tester2",
+			"index": i,
+			"topic": "topic-1",
+		})
+		if err != nil {
+			log.Print(err)
+		}
 	}
-	time.Sleep(10 * time.Second)
+	// for i := 0; i < 100; i++ {
+	// 	err := kclient.Publish(context.TODO(), "topic-2", map[string]interface{}{
+	// 		"meta":  "tester3",
+	// 		"index": i,
+	// 		"topic": "topic-2",
+	// 	})
+	// 	if err != nil {
+	// 		log.Print(err)
+	// 	}
+	// }
+
 }

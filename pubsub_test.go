@@ -80,8 +80,9 @@ func testPublishMessages(brokerURL, topic string, count int) {
 }
 
 func TestPuslishMessages(t *testing.T) {
-	testPublishMessages("0.0.0.0:9092", "topic-0", 20)
+	testPublishMessages("b-1.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092,b-2.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092", "topic-0", 100)
 }
+
 
 // ***** Test send message with config ****/
 func testPuslishMessagesWithConfig(brokerURL, topic1, topic2 string) {
@@ -178,9 +179,8 @@ func testSubscribeSimpleManualCommit(brokerURL, group, topic string) {
 	log.Print(err)
 }
 func TestSubscribeSimpleManualCommit(t *testing.T) {
-	testSubscribeSimpleManualCommit("0.0.0.0:9092", "CG-0", "topic-0")
+	testSubscribeSimpleManualCommit("b-1.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092,b-2.urboxhnstaging.k17vzh.c3.kafka.ap-southeast-1.amazonaws.com:9092", "CG-0", "topic-0")
 }
-
 func TestListTopic(t *testing.T) {
 	ps := &Client{}
 	brokers := strings.Split("0.0.0.0:9092", ",")
