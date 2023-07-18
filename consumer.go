@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 )
 
 func newConsumerGroup(consumerGroup string, reconnect chan bool, brokerURLs ...string) (sarama.ConsumerGroup, error) {
@@ -307,7 +307,7 @@ func (consumer *ConsumerGroupHandle) ConsumeClaim(session sarama.ConsumerGroupSe
 	// NOTE:
 	// Do not move the code below to a goroutine.
 	// The `ConsumeClaim` itself is called within a goroutine, see:
-	// https://github.com/Shopify/sarama/blob/master/consumer_group.go#L27-L29
+	// https://github.com/IBM/sarama/blob/master/consumer_group.go#L27-L29
 	for {
 		select {
 		case m := <-claim.Messages():
@@ -344,7 +344,7 @@ func (consumer *ConsumerGroupHandle) ConsumeClaim(session sarama.ConsumerGroupSe
 
 			// Should return when `session.Context()` is done.
 		// If not, will raise `ErrRebalanceInProgress` or `read tcp <ip>:<port>: i/o timeout` when kafka rebalance. see:
-		// https://github.com/Shopify/sarama/issues/1192
+		// https://github.com/IBM/sarama/issues/1192
 		case <-session.Context().Done():
 			return nil
 		}

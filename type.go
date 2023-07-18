@@ -5,7 +5,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/Shopify/sarama"
+	"github.com/IBM/sarama"
 )
 
 func init() {
