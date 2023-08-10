@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"time"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -20,22 +19,23 @@ func (k *Client) NewPublisher() error {
 	if len(k.addrs) == 0 {
 		return errors.New("not found broker")
 	}
-	dialer := &kafka.Dialer{
-		DualStack: true,
-		Timeout:   1 * time.Second,
-		// TLS:       &tls.Config{...tls config...},
-	}
-
-	w := kafka.NewWriter(kafka.WriterConfig{
-		Brokers:  k.addrs,
-		Balancer: &kafka.RoundRobin{},
-		Dialer:   dialer,
+	// dialer := &kafka.Dialer{
+	// 	DualStack: true,
+	// 	Timeout:   1 * time.Second,
+	// 	// TLS:       &tls.Config{...tls config...},
+	// }
+	w := &kafka.Writer{
+		// Brokers:   k.addrs,
+		Addr:     kafka.TCP(k.addrs...),
+		Balancer: &kafka.LeastBytes{},
+		// Dialer:    dialer,
+		// BatchSize: 5,
 		// Logger:   kafka.LoggerFunc(log.Printf),
-	})
-
-	if w == nil {
-		log.Print("empty writer")
 	}
+
+	// if w == nil {
+	// 	log.Print("empty writer")
+	// }
 	log.Print("writer created")
 	k.writer = w
 	return nil

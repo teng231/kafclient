@@ -29,10 +29,10 @@ func hashMessage(btext []byte) string {
 type Client struct {
 	writer *kafka.Writer
 
-	readers     map[string]*kafka.Reader
-	addrs       []string
-	group       *kafka.ConsumerGroup
-	groupTopics []string // listen
+	readers map[string]*kafka.Reader
+	addrs   []string
+	// group       *kafka.ConsumerGroup
+	// groupTopics []string // listen
 }
 
 func (k *Client) SetAddrs(addrs []string) {

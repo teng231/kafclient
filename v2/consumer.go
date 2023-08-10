@@ -59,7 +59,6 @@ func (k *Client) Listen(ctx context.Context, cMgs chan *Message) error {
 				m, err := r.FetchMessage(ctx) // is not auto commit
 				if err != nil {
 					log.Print(err)
-					time.Sleep(1 * time.Second)
 					continue
 				}
 				cMgs <- &Message{
@@ -90,7 +89,6 @@ func (k *Client) ListenWithAutoCommit(ctx context.Context, cMgs chan *Message) e
 				m, err := r.ReadMessage(ctx) // is auto commit
 				if err != nil {
 					log.Print(err)
-					time.Sleep(1 * time.Second)
 					continue
 				}
 				cMgs <- &Message{
