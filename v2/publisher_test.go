@@ -76,7 +76,7 @@ func TestSendMessage2(t *testing.T) {
 	// 		}
 	// 	}
 	// }()
-	for i := 0; i < 130; i++ {
+	for i := 0; i < 300; i++ {
 		err := kclient.Publish(context.TODO(), "topic-6x", map[string]interface{}{
 			"meta":  "tester2",
 			"index": i,

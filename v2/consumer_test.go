@@ -50,11 +50,15 @@ func TestListenMessageManual2(t *testing.T) {
 	log.Print("Listen message 1")
 	kclient.Listen(context.Background(), cmsg)
 	log.Print("Listen message 2")
+	i := 0
 	for msg := range cmsg {
 		// b, _ := json.MarshalIndent(msg, "", " ")
 		log.Printf("[%s] - part: %d - %s", msg.Topic, msg.Partition, string(msg.Body))
 		log.Print(msg)
 		msg.Commit()
+		i++
+		log.Print(i)
 	}
-	time.Sleep(10 * time.Second)
+	log.Print(i)
+	// time.Sleep(10 * time.Second)
 }

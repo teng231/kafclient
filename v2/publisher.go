@@ -22,8 +22,8 @@ func (k *Client) NewPublisher() error {
 	}
 	w := &kafka.Writer{
 		Addr:         kafka.TCP(k.addrs...),
-		Balancer:     &kafka.LeastBytes{},
-		BatchTimeout: 10 * time.Millisecond,
+		Balancer:     &kafka.RoundRobin{},
+		BatchTimeout: 15 * time.Millisecond,
 	}
 
 	// if w == nil {
@@ -45,13 +45,11 @@ func (k *Client) Publish(ctx context.Context, topic string, msg interface{}) err
 	if err != nil {
 		return errors.New("message of data sender can not marshal")
 	}
-	now := time.Now()
 	err = k.writer.WriteMessages(ctx, kafka.Message{
 		Topic: topic,
 		Key:   []byte(hashMessage(dataSender)),
 		Value: dataSender,
 	})
-	log.Print("x1 ", time.Since(now))
 	return err
 }
 
