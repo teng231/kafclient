@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"testing"
+	"time"
 )
 
 func TestSendMessage(t *testing.T) {
@@ -11,11 +12,13 @@ func TestSendMessage(t *testing.T) {
 	kclient.SetAddrs([]string{"localhost:9092"})
 	kclient.NewPublisher()
 	for i := 0; i < 100; i++ {
+		now := time.Now()
 		err := kclient.Publish(context.TODO(), "topic-1", map[string]interface{}{
 			"meta":  "tester2",
 			"index": i,
 			"topic": "topic-1",
 		})
+		log.Print(time.Since(now))
 		if err != nil {
 			log.Print("báo lỗi:", err)
 		}
