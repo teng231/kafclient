@@ -2,6 +2,8 @@ package kafclient
 
 import (
 	"context"
+	"errors"
+	"io"
 	"log"
 	"math/rand"
 	"time"
@@ -24,6 +26,13 @@ func (k *Client) IsWriters() bool {
 	}
 	return true
 }
+func (k *Client) Close() error {
+	for _, r := range k.readers {
+		r.Close()
+	}
+	return nil
+}
+
 func (k *Client) NewConsumer(consumerGroup string, topics []string) {
 	batchSize := int(10e6) // 10MB
 	dialer := &kafka.Dialer{
@@ -57,6 +66,12 @@ func (k *Client) Listen(ctx context.Context, cMgs chan *Message) error {
 		go func(r *kafka.Reader) {
 			for {
 				m, err := r.FetchMessage(ctx) // is not auto commit
+				if err != nil && errors.Is(err, io.ErrUnexpectedEOF) {
+					break
+				}
+				if err != nil && errors.Is(err, io.EOF) {
+					break
+				}
 				if err != nil {
 					log.Print(err)
 					continue
@@ -87,6 +102,12 @@ func (k *Client) ListenWithAutoCommit(ctx context.Context, cMgs chan *Message) e
 		go func(r *kafka.Reader) {
 			for {
 				m, err := r.ReadMessage(ctx) // is auto commit
+				if err != nil && errors.Is(err, io.ErrUnexpectedEOF) {
+					break
+				}
+				if err != nil && errors.Is(err, io.EOF) {
+					break
+				}
 				if err != nil {
 					log.Print(err)
 					continue

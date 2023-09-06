@@ -50,6 +50,7 @@ type IClient interface {
 	ListenWithAutoCommit(ctx context.Context, cMgs chan *Message) error
 	NewConsumer(consumerGroup string, topics []string)
 	IsWriters() bool
+	Close() error
 
 	NewPublisher() error
 	Publish(ctx context.Context, topic string, msg interface{}) error
