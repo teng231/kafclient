@@ -24,6 +24,7 @@ func (k *Client) NewPublisher() error {
 		Addr:         kafka.TCP(k.addrs...),
 		Balancer:     &kafka.RoundRobin{},
 		BatchTimeout: 15 * time.Millisecond,
+		RequiredAcks: kafka.RequireOne,
 	}
 
 	// if w == nil {
